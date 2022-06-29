@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assignment 3</title>
+  <style>
+    h1 {
+        text-align: center;
+        text-decoration: underline;
+    }
+    .caption {
+        fill: #000;
+        text-anchor: start;
+        font-weight: bold;
+    }
+    .legendThreshold {
+        font-size: 12px;
+        font-family: sans-serif;
+    }
+  </style>
+</head>
+<body>
+    <h1>SG population 2021</h1>
+    <div class="tooltip"></div>
+    <svg></svg>
+
+<!-- Load d3.js & plugin-->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+<script src="https://d3js.org/d3-geo-projection.v3.min.js"></script>
+
+
+<script>
+  
+let width = 1000, height = 600;
+
+let svg = d3.select("svg")
+    .attr("viewBox", "0 0 " + width + " " + height)
+    
+var domain = [0, 8000, 16000, 24000, 32000, 40000, 48000, 56000, 64000]
+
+const colorScale = d3.scaleThreshold()
+  .domain(domain)
+  .range(d3.schemeSet1);
+
+// create tooltip element to add on mouseover
+const tooltip = d3
+    .select(".tooltip")
+    .append("div")
+    .attr("class", "d3-tooltip")
+    .style("position", "absolute")
+    .style("z-index", "10")
+    .style("visibility", "hidden")
+    .style("padding", "15px")
+    .style("background", "rgba(0,0,0,0.6)")
+    .style("border-radius", "5px")
+    .style("color", "#fff")
+
+// Load external data
+Promise.all([d3.json("sgmap.json"), d3.csv("population2021.csv")]).then(data => {
+    
+    console.log(data[0]);
+    console.log(data[1]);
+
+    var getpopulationDataset = {}
+
+    for (let i = 0; i < data[1].length; i++) {
+      // console.log(data[1][i].Population);
+      getpopulationDataset[data[1][i].Subzone.toUpperCase()] = data[1][i].Population;
+    }  
+    
+    // Map and projection
+    var projection = d3.geoMercator()
+        .center([103.851959, 1.290270])
+        .fitExtent([[20, 20], [980, 580]], data[0])
+
+    let geopath = d3.geoPath().projection(projection);
+
+    svg.append("g")
+        .attr("id", "districts")
+        .selectAll("path")
+        .data(data[0].features)
+        .enter()
+        .append("path")
+        .attr("d", geopath)
+        // set the color 
+        .attr("fill", function (d) {
+            return colorScale(getpopulationDataset[d.properties.Name])
+      })
+      .style("stroke", "transparent")
+      .style("opacity", .8)
+      //Add Mouseover
+      .on("mouseover", function (event, d) {
+        tooltip.html(d.properties.Name + "<br>" + "Population: " + (getpopulationDataset[d.properties.Name] || 0))
+          .style("visibility", "visible");
+      })
+      .on("mousemove", function (event) {
+        tooltip
+          .style("top", event.pageY - 10 + "px")
+          .style("left", event.pageX + 10 + "px");
+      })
+      .on("mouseout", function () {
+        tooltip.html(``).style("visibility", "hidden");
+      });
+      
+    // Add legend
+    var g = svg.append("g")
+        .attr("class", "legendThreshold")
+        .attr("transform", "translate(20,20)");
+    g.append("text")
+        .attr("class", "caption")
+        .attr("x", 0)
+        .attr("y", -6)
+        .text("Population No:");
+    var labels = ['0', '1-8000', '8000-16000', '16001-24000', '24001-32000', '32001-40000', '40001-48000', '48001-56000','> 56000'];
+    var legend = d3.legendColor()
+        .labels(function (d) { return labels[d.i]; })
+        .shapePadding(4)
+        .scale(colorScale);
+    svg.select(".legendThreshold")
+        .call(legend);
+    
+})
+
+</script>
+
+</body>
+</html>
